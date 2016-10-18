@@ -5,7 +5,6 @@ rkt run \
   --volume run,kind=host,source=/opt/pynab/run \
   --volume pg-run,kind=host,source=/var/run/postgresql \
   --net=host \
-  --interactive \
   --insecure-options=image \
   ./pynab-latest-ubuntu-amd64.aci
 

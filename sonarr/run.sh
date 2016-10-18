@@ -5,7 +5,6 @@ rkt run \
   --volume media-directory,kind=host,source=/tmp/sonarr/tv/ \
   --volume rtc,kind=host,source=/dev/rtc \
   --port=http:9999 \
-  --interactive \
   --insecure-options=image \
-  ./sonarr-latest-ubuntu-amd64.aci --exec /bin/bash
+  ./sonarr-latest-ubuntu-amd64.aci 
 
