@@ -26,7 +26,7 @@ scripts to see what is available and needs to be configured for
 the container to run properly.
 
 One thing to take note of is the containers have been slightly
-tailored to how __I__ think they should operate. As such there
+tailored to how _I think_ they should operate. As such there
 are some configs inside the container build scripts. If a contianer
 doesn't work how you'd like and you don't control the config outside
 the container; take a poke around the build script and see if the
