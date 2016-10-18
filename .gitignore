@@ -1,0 +1,5 @@
+# Don't commit ACIs, they tend to get pretty big
+*.aci
+
+# Don't commit the rootfs tars as they also tend to be large
+*.gz
