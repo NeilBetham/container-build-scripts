@@ -17,13 +17,6 @@ fi
 read -rd '' BOOTSTRAP_SCRIPT <<EOF
 #!/usr/bin/env bash
 
-pip3 install -r /pynab/requirements.txt
-python3 pynab.py update
-
-pip3 install -r /pynab/requirements.txt
-python3 pynab.py update
-
-
 supervisord -n
 EOF
 
