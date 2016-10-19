@@ -151,6 +151,7 @@ $ACB run -- git clone https://github.com/spotweb/spotweb.git
 
 $ACB run -- rm -rf /var/www/html
 $ACB run -- ln -s /spotweb-config/ownsettings.php /spotweb/ownsettings.php
+$ACB run -- ln -s /spotweb-config/dbsettings.inc.php /spotweb/dbsettings.inc.php
 $ACB run -- ln -s /spotweb-cache/ /spotweb/cache
 
 # PHP FPM config
