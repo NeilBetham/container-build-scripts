@@ -25,7 +25,6 @@ $ACB set-name "$IMAGE_NAME"
 $ACB mount add config /nzbget-config
 $ACB mount add downloads /downloads
 $ACB port add http tcp 6789
-$ACB set-user nzbget
 
 # Add multiverse packages for unrar
 $ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial multiverse"

@@ -99,7 +99,6 @@ $ACB mount add logs /pynab-logs/
 $ACB mount add run /pynab-run/
 $ACB mount add pg-run /var/run/postgresql/
 $ACB set-working-directory /pynab
-$ACB set-user pynab
 
 # Update sources.list
 $ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial universe"

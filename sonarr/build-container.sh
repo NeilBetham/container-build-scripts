@@ -27,7 +27,6 @@ $ACB mount add downloads /downloads
 $ACB mount add media-directory /sonarr/media
 $ACB mount add rtc /dev/rtc --read-only
 $ACB port add http tcp 8989
-$ACB set-user sonarr
 
 # Update sources.list
 $ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial universe"

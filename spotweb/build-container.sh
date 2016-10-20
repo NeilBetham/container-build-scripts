@@ -123,7 +123,6 @@ $ACB mount add logs /spotweb-logs/
 $ACB mount add cache /spotweb-cache/
 $ACB mount add my-run /var/run/mysqld
 $ACB set-working-directory /spotweb
-$ACB set-user spotweb
 
 # Update sources.list
 $ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial universe"
