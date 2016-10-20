@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Download the base Ubuntu image and unzip it
 BASE_IMAGE_URL=http://cdimage.ubuntu.com/ubuntu-base/releases/16.04/release/ubuntu-base-16.04.1-base-amd64.tar.gz
-BASE_IMAGE=./ubuntu-base-16.04.1-base-amd64.tar.gz
+BASE_IMAGE=../ubuntu-base-16.04.1-base-amd64.tar.gz
 IMAGE_NAME=sonarr-latest-ubuntu-amd64
 
 NL=$'\n'
@@ -9,7 +9,9 @@ NL=$'\n'
 ACB="acbuild --debug"
 
 if [ ! -e "./$BASE_IMAGE"  ]; then
+  cd ..
   wget "$BASE_IMAGE_URL"
+  cd -
 fi
 
 # Begin the build with the base ubuntu image
