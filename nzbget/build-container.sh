@@ -21,8 +21,9 @@ trap "{ export EXT=$?; $ACB end && exit $EXT; }" SIGINT SIGTERM
 # Configure the container
 $ACB set-name "$IMAGE_NAME"
 $ACB mount add config /nzbget-config
-$ACB mount add downloads /nzbget-downloads
+$ACB mount add downloads /downloads
 $ACB port add http tcp 6789
+$ACB set-user nzbget
 
 # Add multiverse packages for unrar
 $ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial multiverse"
@@ -37,7 +38,7 @@ $ACB run -- apt install wget unrar -y
 
 # Install NZBGet
 $ACB run -- mkdir /nzbget
-$ACB run -- mkdir /nzbget-downloads/
+$ACB run -- mkdir /downloads/
 $ACB run -- mkdir /nzbget-config/
 
 ## Download and install

@@ -8,33 +8,6 @@ NL=$'\n'
 
 ACB="acbuild --debug"
 
-read -rd '' UPDATE_SCRIPT << EOF
-#!/usr/bin/env bash
-
-echo "updating sonarr"
-rm -Rfv /opt/NzbDrone/*
-mv $2/NzbDrone/* /opt/NzbDrone/
-
-echo "sending term to sonarr"
-kill $1
-EOF
-
-read -rd '' START_SCRIPT << EOF
-#!/usr/bin/env bash
-
-function handle_signal {
-  PID=$!
-  echo "received signal. PID is ${PID}"
-  kill -s SIGHUP $PID
-}
-
-trap "handle_signal" SIGINT SIGTERM SIGHUP
-
-echo "starting sonarr"
-mono /opt/NzbDrone/NzbDrone.exe "$@" & wait
-echo "stopping sonarr"
-EOF
-
 if [ ! -e "./$BASE_IMAGE"  ]; then
   wget "$BASE_IMAGE_URL"
 fi
@@ -48,10 +21,11 @@ trap "{ export EXT=$?; $ACB end && exit $EXT; }" SIGINT SIGTERM
 # Configure the container
 $ACB set-name "$IMAGE_NAME"
 $ACB mount add app-data /sonarr/config
-$ACB mount add downloads /sonarr/downloads
+$ACB mount add downloads /downloads
 $ACB mount add media-directory /sonarr/media
 $ACB mount add rtc /dev/rtc --read-only
 $ACB port add http tcp 8989
+$ACB set-user sonarr
 
 # Update sources.list
 $ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial universe"
@@ -66,14 +40,8 @@ $ACB run -- apt update
 $ACB run -- apt upgrade -y
 $ACB run -- apt install nzbdrone -y
 
-# Write out the update and start scripts
-$ACB run -- tee -a /sonarr-start.sh <<< "${START_SCRIPT}"
-$ACB run -- tee -a /sonarr-update.sh <<< "${UPDATE_SCRIPT}"
-$ACB run -- chmod +x /sonarr-start.sh
-$ACB run -- chmod +x /sonarr-update.sh
-
 # Set executable
-$ACB set-exec -- /sonarr-start.sh --no-browser -data=/sonarr/config
+$ACB set-exec -- mono /opt/NzbDrone/NzbDrone.exe --no-browser -data=/sonarr/config
 
 # Write out the ACI
 $ACB write --overwrite "$IMAGE_NAME".aci
