@@ -25,7 +25,7 @@ EOF
 read -rd '' UWSGI_INI <<EOF
 [uwsgi]
 socket = /pynab-run/socket
-chmod-socket = 664
+chmod-socket = 666
 vacuum = true
 master = true
 chdir = /pynab
