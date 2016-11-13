@@ -31,6 +31,12 @@ $ACB set-working-directory /couchpotato/
 # Copy CAs
 $ACB copy-to-dir ../cas/* /usr/local/share/ca-certificates/
 
+# Mkdirs
+$ACB run -- mkdir /couchpotato-data
+$ACB run -- mkdir /downloads
+$ACB run -- mkdir /couchpotato-media
+
+
 # Update sources.list
 $ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial universe"
 $ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial universe"
