@@ -33,3 +33,8 @@ are some configs inside the container build scripts. If a contianer
 doesn't work how you'd like and you don't control the config outside
 the container; take a poke around the build script and see if the
 config you're looking for is there.
+
+### Self signed CAs
+If you have any self signed CAs that you would like to use when connecting
+over SSL to your own services, put them in the `cas` folder at the root.
+

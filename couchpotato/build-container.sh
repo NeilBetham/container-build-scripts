@@ -2,7 +2,7 @@
 # Download the base Ubuntu image and unzip it
 BASE_IMAGE_URL=http://cdimage.ubuntu.com/ubuntu-base/releases/16.04/release/ubuntu-base-16.04.1-base-amd64.tar.gz
 BASE_IMAGE=../ubuntu-base-16.04.1-base-amd64.tar.gz
-IMAGE_NAME=sonarr-latest-ubuntu-amd64
+IMAGE_NAME=couchpotato-latest-ubuntu-amd64
 
 NL=$'\n'
 
@@ -22,11 +22,11 @@ trap "{ export EXT=$?; $ACB end && exit $EXT; }" SIGINT SIGTERM
 
 # Configure the container
 $ACB set-name "$IMAGE_NAME"
-$ACB mount add app-data /sonarr/config
+$ACB mount add app-data /couchpotato-data
 $ACB mount add downloads /downloads
-$ACB mount add media-directory /sonarr/media
-$ACB mount add rtc /dev/rtc --read-only
-$ACB port add http tcp 8989
+$ACB mount add media-directory /couchpotato-media
+$ACB port add http tcp 5050
+$ACB set-working-directory /couchpotato/
 
 # Copy CAs
 $ACB copy-to-dir ../cas/* /usr/local/share/ca-certificates/
@@ -37,15 +37,19 @@ $ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu
 $ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial-updates universe"
 $ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial-updates universe"
 
-# Install Sonarr
-$ACB run -- apt-key adv --keyserver keyserver.ubuntu.com --recv-keys FDA5DFFC
-$ACB run -- tee /etc/apt/sources.list.d/sonarr.list <<< "deb http://apt.sonarr.tv/ master main"
+# Install deps
 $ACB run -- apt update
 $ACB run -- apt upgrade -y
-$ACB run -- apt install nzbdrone -y
+$ACB run -- apt install -y python-pip build-essential libssl-dev libffi-dev python-dev git
+$ACB run -- pip install --upgrade pip
+$ACB run -- pip install --upgrade pyopenssl
+
+# Clone code
+$ACB run -- mkdir /couchpotato/
+$ACB run -- git clone https://github.com/CouchPotato/CouchPotatoServer.git /couchpotato/
 
 # Set executable
-$ACB set-exec -- mono /opt/NzbDrone/NzbDrone.exe --no-browser -data=/sonarr/config
+$ACB set-exec -- python /couchpotato/CouchPotato.py --data_dir="/couchpotato-data/"
 
 # Write out the ACI
 $ACB write --overwrite "$IMAGE_NAME".aci
