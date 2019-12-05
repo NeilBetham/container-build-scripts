@@ -3,3 +3,6 @@
 
 # Don't commit the rootfs tars as they also tend to be large
 *.gz
+
+# Steam related dirs / info
+steam_*
