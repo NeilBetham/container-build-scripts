@@ -75,7 +75,7 @@ echo "=================================================="
 buildah config --cmd "/starbound/linux/starbound_server" ${CTNR}
 buildah config --port 21025 ${CTNR}
 buildah config --volume /starbound/storage ${CTNR}
-buildah config --workingdir /starbound/linux
+buildah config --workingdir /starbound/linux ${CTNR}
 echo "Done"
 
 echo "=================================================="
