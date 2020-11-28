@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 SCRIPT_DIR="$(dirname $(readlink -f $0))"
-BASE_IMAGE_URL="http://cdimage.ubuntu.com/ubuntu-base/releases/18.04/release/ubuntu-base-18.04.3-base-amd64.tar.gz"
-BASE_IMAGE_FILE="../ubuntu-base-18.04.3-base-amd64.tar.gz"
+BASE_IMAGE_URL="http://cdimage.ubuntu.com/ubuntu-base/releases/18.04/release/ubuntu-base-18.04.5-base-amd64.tar.gz"
+BASE_IMAGE_FILE="../base-image.tar.gz"
 IMAGE_NAME="starbound-latest-ubuntu-amd64"
 TMP_DIR="/tmp/$(uuidgen)"
 STEAM_CACHE="${SCRIPT_DIR}/steam_cache"
 STEAM_USERNAME_CACHE="${SCRIPT_DIR}/steam_user"
+
+source ../utils.sh
 
 # Setup tmp / cache dirs
 mkdir "${TMP_DIR}"
@@ -37,49 +39,35 @@ BR="buildah run ${CTNR}"
 buildah add ${CTNR} ${BASE_IMAGE_FILE} /
 
 # Update base image
-echo "=================================================="
-echo "Updating Base Image"
-echo "=================================================="
+echo_step "Updating Base Image"
 $BR -- apt update
 $BR -- apt upgrade -y
 $BR -- apt install lib32gcc1 curl libvorbisfile3 -y
 
 # Install steamcmd
-echo "=================================================="
-echo "Installing steamcmd"
-echo "=================================================="
+echo_step "Installing steamcmd"
 $BR -- mkdir /steam/
 $BR -- bash -c 'curl -sqL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" | tar -C /steam -zxvf -'
 
 
 # Install Starbound server binary
-echo "=================================================="
-echo "Installing starbound server"
-echo "=================================================="
-
+echo_step "Installing starbound server"
 $BR -- mkdir /starbound
 
 if [ "${NEEDS_LOGIN}" = true ]; then
-echo "=================================================="
-echo "Login to Steam using the login command"
-echo "=================================================="
+echo_step "Login to Steam using the login command"
 sleep 1
 buildah run --mount type=bind,src=${STEAM_CACHE},target=/root/Steam --terminal ${CTNR} -- /steam/steamcmd.sh
 fi
 
 buildah run --mount type=bind,src=${STEAM_CACHE},target=/root/Steam ${CTNR} -- /steam/steamcmd.sh +login ${STEAM_USERNAME} +force_install_dir /starbound +app_update 211820 +quit
 
-echo "=================================================="
-echo "Setting container info"
-echo "=================================================="
+echo_step "Setting container info"
 buildah config --cmd "/starbound/linux/starbound_server" ${CTNR}
 buildah config --port 21025 ${CTNR}
 buildah config --volume /starbound/storage ${CTNR}
 buildah config --workingdir /starbound/linux ${CTNR}
 echo "Done"
 
-echo "=================================================="
-echo "Commiting container"
-echo "=================================================="
+echo_step "Commiting container"
 buildah commit ${CTNR} "starbound"
-

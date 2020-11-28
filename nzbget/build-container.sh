@@ -1,62 +1,60 @@
 #!/usr/bin/env bash
-# Download the base Ubuntu image and unzip it
-BASE_IMAGE_URL=http://cdimage.ubuntu.com/ubuntu-base/releases/16.04/release/ubuntu-base-16.04.1-base-amd64.tar.gz
-BASE_IMAGE=../ubuntu-base-16.04.1-base-amd64.tar.gz
-IMAGE_NAME=nzbget-latest-ubuntu-amd64
+SCRIPT_DIR="$(dirname $(readlink -f $0))"
+BASE_IMAGE_URL="http://cdimage.ubuntu.com/ubuntu-base/releases/18.04/release/ubuntu-base-18.04.5-base-amd64.tar.gz"
+BASE_IMAGE_FILE="../base-image.tar.gz"
+IMAGE_NAME="nzbget-latest-ubuntu-amd64"
+TMP_DIR="/tmp/$(uuidgen)"
 
-NL=$'\n'
+source ../utils.sh
 
-ACB="acbuild --debug"
+# Setup tmp dir
+mkdir "${TMP_DIR}"
 
-if [ ! -e "./$BASE_IMAGE"  ]; then
-  cd ..
-  wget "$BASE_IMAGE_URL"
-  cd -
+# Download base image
+if [ ! -f "${BASE_IMAGE_FILE}" ]; then
+curl -L -o "${BASE_IMAGE_FILE}" "${BASE_IMAGE_URL}"
 fi
 
-# Begin the build with the base ubuntu image
-$ACB begin "$BASE_IMAGE"
+# Setup the base container from tarball
+CTNR=$(buildah from scratch)
+echo_step "Building Container With ID: ${CTNR}"
+BR="buildah run ${CTNR}"
 
-# If we exit before completion, clean up
-trap "{ export EXT=$?; $ACB end && exit $EXT; }" SIGINT SIGTERM
+# Import base image
+buildah add ${CTNR} ${BASE_IMAGE_FILE} /
+
+# Update base image
+echo_step "Updating Base Image"
+$BR -- apt update
+$BR -- apt upgrade -y
+
+# Install deps
+echo_step "Installing Deps"
+$BR -- apt install wget unrar -y
+
+# Install nzbget
+echo_step "Installing NZBGet"
+$BR -- mkdir /nzbget
+$BR -- mkdir /downloads
+$BR -- mkdir /nzbget-config
+
+# Download the latest release
+NZBGET_RELEASE_URL=$(wget -O - http://nzbget.net/info/nzbget-version-linux.json | sed -n "s/^.*stable-download.*: \"\(.*\)\".*/\1/p")
+$BR -- wget --no-check-certificate -O /nzbget/nzbget-latest-bin-linux.run "$NZBGET_RELEASE_URL"
+$BR -- sh /nzbget/nzbget-latest-bin-linux.run
+
+# Move config so we can link but expose it for reference if need be
+$BR -- mv /nzbget/nzbget.conf /nzbget/nzbget.conf.orig
+$BR -- ln -s /nzbget-config/nzbget.conf /nzbget/nzbget.conf
+$BR -- ln -s /nzbget/nzbget.conf.orig /nzbget-config/nzbget.conf.orig
 
 # Configure the container
-$ACB set-name "$IMAGE_NAME"
-$ACB mount add config /nzbget-config
-$ACB mount add downloads /downloads
-$ACB port add http tcp 6789
+echo_step "Configuring Container"
+buildah config --cmd '/nzbget/nzbget -c /nzbget/nzbget.conf -s -o outputmode=log' ${CTNR}
+buildah config --volume /downloads ${CTNR}
+buildah config --volume /nzbget-config ${CTNR}
+buildah config --port 6789 ${CTNR}
 
-# Add multiverse packages for unrar
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial multiverse"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial multiverse"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial-updates multiverse"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial-updates multiverse"
-
-# Update the image
-$ACB run -- apt update
-$ACB run -- apt upgrade -y
-$ACB run -- apt install wget unrar -y
-
-# Install NZBGet
-$ACB run -- mkdir /nzbget
-$ACB run -- mkdir /downloads/
-$ACB run -- mkdir /nzbget-config/
-
-## Download and install
-NZBGET_RELEASE_URL=$(wget -O - http://nzbget.net/info/nzbget-version-linux.json | sed -n "s/^.*stable-download.*: \"\(.*\)\".*/\1/p")
-$ACB run -- wget --no-check-certificate -O /nzbget/nzbget-latest-bin-linux.run "$NZBGET_RELEASE_URL" 
-$ACB run -- sh /nzbget/nzbget-latest-bin-linux.run
-
-## Move config so we can link but expose it for reference if need be
-$ACB run -- mv /nzbget/nzbget.conf /nzbget/nzbget.conf.orig
-$ACB run -- ln -s /nzbget-config/nzbget.conf /nzbget/nzbget.conf
-$ACB run -- ln -s /nzbget/nzbget.conf.orig /nzbget-config/nzbget.conf.orig
-
-# Set executable
-$ACB set-exec -- /nzbget/nzbget -c /nzbget/nzbget.conf -s -o outputmode=log
-
-# Write out the ACI
-$ACB write --overwrite "$IMAGE_NAME".aci
-
-# Done
-$ACB end
+# Commit the container
+echo_step "Commiting Container"
+buildah commit ${CTNR} "nzbget"

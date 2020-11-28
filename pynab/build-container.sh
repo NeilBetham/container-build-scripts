@@ -1,151 +1,70 @@
 #!/usr/bin/env bash
-# Build script for a fully self contained pynab instance
+SCRIPT_DIR="$(dirname $(readlink -f $0))"
+BASE_IMAGE_URL="http://cdimage.ubuntu.com/ubuntu-base/releases/18.04/release/ubuntu-base-18.04.5-base-amd64.tar.gz"
+BASE_IMAGE_FILE="../base-image.tar.gz"
+IMAGE_NAME="pynab-latest-ubuntu-amd64"
+TMP_DIR="/tmp/$(uuidgen)"
 
-# Download the base Ubuntu image and unzip it
-BASE_IMAGE_URL=http://cdimage.ubuntu.com/ubuntu-base/releases/16.04/release/ubuntu-base-16.04.1-base-amd64.tar.gz
-BASE_IMAGE=../ubuntu-base-16.04.1-base-amd64.tar.gz
-IMAGE_NAME=pynab-latest-ubuntu-amd64
+source ../utils.sh
+source config.sh
 
-NL=$'\n'
+# Setup tmp dir
+mkdir "${TMP_DIR}"
 
-ACB="acbuild --debug"
-
-if [ ! -e "./$BASE_IMAGE"  ]; then
-  cd ..
-  wget "$BASE_IMAGE_URL"
-  cd -
+# Download base image
+if [ ! -f "${BASE_IMAGE_FILE}" ]; then
+curl -L -o "${BASE_IMAGE_FILE}" "${BASE_IMAGE_URL}"
 fi
 
-read -rd '' BOOTSTRAP_SCRIPT <<EOF
-#!/usr/bin/env bash
+# Setup the base container from tarball
+CTNR=$(buildah from scratch)
+echo_step "Building Container With ID: ${CTNR}"
+BR="buildah run ${CTNR}"
 
-supervisord -n
-EOF
+# Import base image
+buildah add ${CTNR} ${BASE_IMAGE_FILE} /
 
-read -rd '' UWSGI_INI <<EOF
-[uwsgi]
-socket = /pynab-run/socket
-chmod-socket = 666
-vacuum = true
-master = true
-chdir = /pynab
-wsgi-file = api.py
-processes = 4
-threads = 2
-EOF
+# Update base image
+echo_step "Updating Base Image"
+$BR -- apt update
+$BR -- apt upgrade -y
+$BR -- apt install gnupg2 ca-certificates curl -y
 
-read -rd '' SUP_CONFIG <<EOF
-[program:scan]
-command=/usr/bin/python3 /pynab/scan.py update
-autostart=true
-autorestart=true
-stopsignal=QUIT
-user=root
+# Install deps
+echo_step "Install Deps"
+$BR -- apt install git python3 python3-setuptools python3-pip libxml2-dev libxslt-dev libyaml-dev postgresql-server-dev-10 supervisor unrar -y
 
-[program:postproc]
-command=/usr/bin/python3 /pynab/postprocess.py
-autostart=true
-autorestart=true
-stopsignal=QUIT
-user=root
+# Setup pynab
+echo_step "Setting Up pynab"
+$BR -- mkdir /pynab
+$BR -- mkdir /pynab-config
+$BR -- git clone https://github.com/NeilBetham/pynab.git /pynab
 
-[program:prebot]
-command=/usr/bin/python3 /pynab/prebot.py start
-autostart=true
-autorestart=true
-stopsignal=QUIT
-user=root
-
-[program:stats]
-command=/usr/bin/python3 /pynab/scripts/stats.py
-autostart=true
-autorestart=true
-stopsignal=QUIT
-user=root
-
-[program:api]
-command=/usr/bin/uwsgi --ini /etc/uwsgi/apps-enabled/pynab.ini
-autostart=true
-autorestart=true
-stopsignal=QUIT
-user=root
-
-[program:backfill]
-command=/usr/bin/python3 /pynab/scan.py backfill
-autostart=false
-autorestart=true
-stopsignal=QUIT
-user=root
-
-[program:pubsub]
-command=/usr/bin/python3 /pynab/pubsub.py start
-autostart=false
-autorestart=true
-stopsignal=QUIT
-user=root
-
-[group:pynab]
-programs=scan,postproc,prebot,api,stats,backfill,pubsub
-EOF
-
-# Begin the build with the base ubuntu image
-$ACB begin "$BASE_IMAGE"
-
-# If we exit before completion, clean up
-trap "{ export EXT=$?; $ACB end && exit $EXT; }" SIGINT SIGTERM
-
-# Configure the container
-$ACB set-name "$IMAGE_NAME"
-$ACB mount add config /pynab-config/
-$ACB mount add logs /pynab-logs/
-$ACB mount add run /pynab-run/
-$ACB mount add pg-run /var/run/postgresql/
-$ACB set-working-directory /pynab
-
-# Update sources.list
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial universe"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial universe"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial-updates universe"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial-updates universe"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial-backports main restricted"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial-backports main restricted"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial multiverse"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial multiverse"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial-updates multiverse"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial-updates multiverse"
-
-# Update and install some deps
-$ACB run -- apt update
-$ACB run -- apt upgrade -y
-$ACB run -- apt install git python3 python3-setuptools python3-pip libxml2-dev libxslt-dev libyaml-dev postgresql-server-dev-9.5 supervisor unrar -y
-
-# Checkout code
-$ACB run -- mkdir /pynab
-$ACB run -- mkdir /pynab-config
-$ACB run -- git clone https://github.com/NeilBetham/pynab.git /pynab
-
-# Setup app
-$ACB run -- ln -s /pynab-config/config.py /pynab/config.py
-$ACB run -- pip3 install -r /pynab/requirements.txt
-$ACB run -- pip3 install uwsgi
-$ACB run -- ln -fs /usr/local/bin/uwsgi /usr/bin/uwsgi
+$BR -- ln -s /pynab-config/config.py /pynab/config.py
+$BR -- pip3 install -r /pynab/requirements.txt
+$BR -- pip3 install uwsgi
+$BR -- ln -fs /usr/local/bin/uwsgi /usr/bin/uwsgi
 
 # Write out bootstrap script
-$ACB run -- tee /bootstrap-pynab.sh <<< "${BOOTSTRAP_SCRIPT}"
-$ACB run -- chmod +x /bootstrap-pynab.sh
+$BR -- tee /bootstrap-pynab.sh <<< "${BOOTSTRAP_SCRIPT}"
+$BR -- chmod +x /bootstrap-pynab.sh
 
 # Write out the uWSGI ini
-$ACB run -- mkdir -p /etc/uwsgi/apps-enabled/
-$ACB run -- tee -a /etc/uwsgi/apps-enabled/pynab.ini <<< "${UWSGI_INI}"
+$BR -- mkdir -p /etc/uwsgi/apps-enabled/
+$BR -- tee -a /etc/uwsgi/apps-enabled/pynab.ini <<< "${UWSGI_INI}"
 
 # Write out supervisor config
-$ACB run -- tee -a /etc/supervisor/conf.d/pynab.conf <<< "${SUP_CONFIG}"
+$BR -- tee -a /etc/supervisor/conf.d/pynab.conf <<< "${SUP_CONFIG}"
 
-# Set executable
-$ACB set-exec -- /bootstrap-pynab.sh
+# Configure container
+echo_step "Configuring Container"
+buildah config --cmd "/bootstrap-pynab.sh" ${CTNR}
+buildah config --volume /pynab-config/ ${CTNR}
+buildah config --volume /pynab-logs/ ${CTNR}
+buildah config --volume /pynab-run/ ${CTNR}
+buildah config --volume /var/run/postgresql/ ${CTNR}
+buildah config --workingdir /pynab/ ${CTNR}
 
-# Write out the ACI
-$ACB write --overwrite "$IMAGE_NAME".aci
-
-# Done
-$ACB end
+# Commit the container
+echo_step "Commiting Container"
+buildah commit ${CTNR} "pynab"

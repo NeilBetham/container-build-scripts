@@ -1,169 +1,74 @@
 #!/usr/bin/env bash
-# Download the base Ubuntu image and unzip it
-BASE_IMAGE_URL=http://cdimage.ubuntu.com/ubuntu-base/releases/16.04/release/ubuntu-base-16.04.1-base-amd64.tar.gz
-BASE_IMAGE=../ubuntu-base-16.04.1-base-amd64.tar.gz
-IMAGE_NAME=spotweb-latest-ubuntu-amd64
+SCRIPT_DIR="$(dirname $(readlink -f $0))"
+BASE_IMAGE_URL="http://cdimage.ubuntu.com/ubuntu-base/releases/18.04/release/ubuntu-base-18.04.5-base-amd64.tar.gz"
+BASE_IMAGE_FILE="../base-image.tar.gz"
+IMAGE_NAME="spotweb-latest-ubuntu-amd64"
+TMP_DIR="/tmp/$(uuidgen)"
 
-NL=$'\n'
+source ../utils.sh
+source config.sh
 
-ACB="acbuild --debug"
+# Setup tmp dir
+mkdir "${TMP_DIR}"
 
-if [ ! -e "./$BASE_IMAGE"  ]; then
-  cd ..
-  wget "$BASE_IMAGE_URL"
-  cd -
+# Download base image
+if [ ! -f "${BASE_IMAGE_FILE}" ]; then
+curl -L -o "${BASE_IMAGE_FILE}" "${BASE_IMAGE_URL}"
 fi
 
-read -rd '' FPM_BOOTSTRAP <<EOF
-#!/usr/bin/env bash
+# Setup the base container from tarball
+CTNR=$(buildah from scratch)
+BR="buildah run ${CTNR}"
 
-mkdir -p /run/php/
+# Import base image
+buildah add ${CTNR} ${BASE_IMAGE_FILE} /
 
-exec /usr/sbin/php-fpm7.0 -F --fpm-config /etc/php/7.0/fpm/php-fpm.conf
-EOF
+# Update base image
+echo_step "Updating Base Image"
+$BR -- apt update
+$BR -- apt upgrade -y
+$BR -- apt install lib32gcc1 curl libvorbisfile3 -y
 
-read -rd '' NGX_BOOTSTRAP <<EOF
-#!/usr/bin/env bash
-
-rm -f /spotweb-run/nginx.sock
-
-exec /usr/sbin/nginx -g 'daemon off;'
-EOF
-
-read -rd '' SUP_CONFIG <<EOF
-[program:nginx]
-command=/bin/bash /ngx-bootstrap.sh
-autostart=true
-autorestart=true
-stopsignal=QUIT
-user=root
-stderr_logfile = /spotweb-logs/nginx-stderr.log
-stdout_logfile = /spotweb-logs/nginx-stdout.log
-stdout_logfile_maxbytes = 10MB
-stderr_logfile_maxbytes = 10MB
-stdout_logfile_backups = 10
-stderr_logfile_backups = 10
-
-[program:php-fpm]
-command=/bin/bash /php-fpm-bootstrap.sh
-autostart=true
-autorestart=true
-stopsignal=QUIT
-user=root
-stderr_logfile = /spotweb-logs/php-fpm-stderr.log
-stdout_logfile = /spotweb-logs/php-fpm-stdout.log
-stdout_logfile_maxbytes = 10MB
-stderr_logfile_maxbytes = 10MB
-stdout_logfile_backups = 10
-stderr_logfile_backups = 10
+# Install deps
+echo_step "Installing deps"
+$BR -- /bin/bash -c 'DEBIAN_FRONTEND=noninteractive apt install supervisor git php-fpm php-mysql nginx php-gd php-curl php-zip php-xml php-mbstring -y'
 
 
-[group:spotweb]
-programs=nginx,php-fpm
-EOF
-
-read -rd '' NGINX_SITE_CONFIG <<'EOF'
-server {
-	listen unix:/spotweb-run/nginx.sock;
-
-	root /spotweb;
-	index index.php index.html index.htm;
-
-	# Make site accessible from http://localhost/
-	server_name _;
-	
-	# Add stdout logging
-
-	error_log /dev/stdout info;
-	access_log /dev/stdout;
-
-	location / {
-		try_files $uri $uri/ =404;
-	}
-
-	#
-	location ~ [^/]\.php(/|$) {
-		fastcgi_split_path_info ^(.+?\.php)(/.*)$;
-		if (!-f $document_root$fastcgi_script_name) {
-			return 404;
-		}
-
-		fastcgi_pass unix:/run/php/php7.0-fpm.sock;
-		fastcgi_param HTTP_PROXY "";
-		fastcgi_param SCRIPT_FILENAME $document_root/$fastcgi_script_name;
-		fastcgi_index index.php;
-		include fastcgi_params;
-	}
-
-        location ~* \.(jpg|jpeg|gif|png|css|js|ico|xml)$ {
-                expires           5d;
-        }
-
-	# deny access to . files, for security
-	#
-	location ~ /\. {
-    		log_not_found off; 
-    		deny all;
-	}
-
-}
-EOF
-
-# Begin the build with the base ubuntu image
-$ACB begin "$BASE_IMAGE"
-
-# If we exit before completion, clean up
-trap "{ export EXT=$?; $ACB end && exit $EXT; }" SIGINT SIGTERM
-
-# Configure the container
-$ACB set-name "$IMAGE_NAME"
-$ACB mount add config /spotweb-config/
-$ACB mount add run /spotweb-run/
-$ACB mount add logs /spotweb-logs/
-$ACB mount add cache /spotweb-cache/
-$ACB mount add my-run /var/run/mysqld
-$ACB set-working-directory /spotweb
-
-# Update sources.list
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial universe"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial universe"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial-updates universe"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial-updates universe"
-
-# Install updates and requirements
-$ACB run -- apt update
-$ACB run -- apt upgrade -y
-$ACB run -- apt install supervisor git php-fpm php-mysql nginx php-gd php-curl php-zip php-xml php-mbstring -y
-
-# Setup nginx 
-$ACB run -- tee /etc/nginx/sites-available/default <<< "${NGINX_SITE_CONFIG}"
+echo_step "Writing configs"
+# Setup nginx
+$BR -- tee /etc/nginx/sites-available/default <<< "${NGINX_SITE_CONFIG}"
 
 # Write out supervisor config
-$ACB run -- tee /etc/supervisor/conf.d/spotweb.conf <<< "${SUP_CONFIG}"
-$ACB run -- tee /php-fpm-bootstrap.sh <<< "${FPM_BOOTSTRAP}"
-$ACB run -- chmod +x /php-fpm-bootstrap.sh
-$ACB run -- tee /ngx-bootstrap.sh <<< "${NGX_BOOTSTRAP}"
-$ACB run -- chmod +x /ngx-bootstrap.sh
-
-# Setup spotweb
-$ACB run -- mkdir -p /run/php/
-$ACB run -- mkdir /spotweb-config
-$ACB run -- mkdir /spotweb-cache
-$ACB run -- git clone https://github.com/spotweb/spotweb.git
-
-$ACB run -- rm -rf /var/www/html
-$ACB run -- ln -s /spotweb-config/ownsettings.php /spotweb/ownsettings.php
-$ACB run -- ln -s /spotweb-config/dbsettings.inc.php /spotweb/dbsettings.inc.php
-$ACB run -- ln -s /spotweb-cache/ /spotweb/cache
+$BR -- tee /etc/supervisor/conf.d/spotweb.conf <<< "${SUP_CONFIG}"
+$BR -- tee /php-fpm-bootstrap.sh <<< "${FPM_BOOTSTRAP}"
+$BR -- chmod +x /php-fpm-bootstrap.sh
+$BR -- tee /ngx-bootstrap.sh <<< "${NGX_BOOTSTRAP}"
+$BR -- chmod +x /ngx-bootstrap.sh
 
 # PHP FPM config
-$ACB run -- tee /etc/php/7.0/fpm/php.ini <<< "date.timezone=\"America/Los_Angeles\""
+$BR -- tee /etc/php/7.2/fpm/php.ini <<< "date.timezone=\"America/Los_Angeles\""
 
-# Set executable
-$ACB set-exec -- /usr/bin/supervisord -n
+# Setup spotweb
+echo_step "Setting up Spotweb"
+$BR -- mkdir -p /run/php/
+$BR -- mkdir /spotweb-config
+$BR -- mkdir /spotweb-cache
+$BR -- git clone https://github.com/spotweb/spotweb.git
 
-# Write out the ACI
-$ACB write --overwrite "$IMAGE_NAME".aci
+$BR -- rm -rf /var/www/html
+$BR -- ln -s /spotweb-config/ownsettings.php /spotweb/ownsettings.php
+$BR -- ln -s /spotweb-config/dbsettings.inc.php /spotweb/dbsettings.inc.php
+$BR -- ln -s /spotweb-cache/ /spotweb/cache
 
-# Done
-$ACB end
+echo_step "Configuring container"
+buildah config --cmd "/usr/bin/supervisord -n" ${CTNR}
+buildah config --port 80 ${CTNR}
+buildah config --workingdir /spotweb ${CTNR}
+buildah config --volume /spotweb-config/ ${CTNR}
+buildah config --volume /spotweb-run/ ${CTNR}
+buildah config --volume /spotweb-logs/ ${CTNR}
+buildah config --volume /spotweb-cache/ ${CTNR}
+buildah config --volume /var/run/mysqld/ ${CTNR}
+
+echo_step "Commiting container"
+buildah commit ${CTNR} "spotweb"

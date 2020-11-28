@@ -1,54 +1,60 @@
 #!/usr/bin/env bash
-# Download the base Ubuntu image and unzip it
-BASE_IMAGE_URL=http://cdimage.ubuntu.com/ubuntu-base/releases/16.04/release/ubuntu-base-16.04.1-base-amd64.tar.gz
-BASE_IMAGE=../ubuntu-base-16.04.1-base-amd64.tar.gz
-IMAGE_NAME=sonarr-latest-ubuntu-amd64
+SCRIPT_DIR="$(dirname $(readlink -f $0))"
+BASE_IMAGE_URL="http://cdimage.ubuntu.com/ubuntu-base/releases/18.04/release/ubuntu-base-18.04.5-base-amd64.tar.gz"
+BASE_IMAGE_FILE="../base-image.tar.gz"
+IMAGE_NAME="sonarr-latest-ubuntu-amd64"
+TMP_DIR="/tmp/$(uuidgen)"
 
-NL=$'\n'
+source ../utils.sh
 
-ACB="acbuild --debug"
+# Setup tmp dir
+mkdir "${TMP_DIR}"
 
-if [ ! -e "./$BASE_IMAGE"  ]; then
-  cd ..
-  wget "$BASE_IMAGE_URL"
-  cd -
+# Download base image
+if [ ! -f "${BASE_IMAGE_FILE}" ]; then
+curl -L -o "${BASE_IMAGE_FILE}" "${BASE_IMAGE_URL}"
 fi
 
-# Begin the build with the base ubuntu image
-$ACB begin "$BASE_IMAGE"
+# Setup the base container from tarball
+CTNR=$(buildah from scratch)
+echo_step "Building Container With ID: ${CTNR}"
+BR="buildah run ${CTNR}"
 
-# If we exit before completion, clean up
-trap "{ export EXT=$?; $ACB end && exit $EXT; }" SIGINT SIGTERM
+# Import base image
+buildah add ${CTNR} ${BASE_IMAGE_FILE} /
 
-# Configure the container
-$ACB set-name "$IMAGE_NAME"
-$ACB mount add app-data /sonarr/config
-$ACB mount add downloads /downloads
-$ACB mount add media-directory /sonarr/media
-$ACB mount add rtc /dev/rtc --read-only
-$ACB port add http tcp 8989
+# Update base image
+echo_step "Updating Base Image"
+$BR -- apt update
+$BR -- apt upgrade -y
+$BR -- apt install gnupg2 ca-certificates curl -y
 
-# Copy CAs
-$ACB copy-to-dir ../cas/* /usr/local/share/ca-certificates/
+# Copy CAs to container
+echo_step "Loading CAs"
+buildah add ${CTNR} ../cas/* /usr/local/share/ca_certificates
 
-# Update sources.list
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial universe"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial universe"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb http://archive.ubuntu.com/ubuntu/ xenial-updates universe"
-$ACB run -- tee -a /etc/apt/sources.list <<< "${NL}deb-src http://archive.ubuntu.com/ubuntu/ xenial-updates universe"
+# Install sonarr
+echo_step "Installing Sonarr"
+$BR -- useradd -r sonarr
+$BR -- groupadd sonarr
+$BR -- apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 2009837CBFFD68F45BC180471F4F90DE2A9B4BF8
+$BR -- tee /etc/apt/sources.list.d/sonarr.list <<< "deb http://apt.sonarr.tv/ubuntu bionic main"
+$BR -- apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
+$BR -- tee /etc/apt/sources.list.d/mono-official-stable.list <<< "deb https://download.mono-project.com/repo/ubuntu stable-bionic main"
+$BR -- bash -c 'curl -o /tmp/mediainfo.deb https://mediaarea.net/repo/deb/repo-mediaarea_1.0-13_all.deb && dpkg -i /tmp/mediainfo.deb'
+$BR -- apt update
+$BR -- apt upgrade -y
+$BR -- bash -c 'DEBIAN_FRONTEND=noninteractive apt install sonarr -y'
 
-# Install Sonarr
-$ACB run -- apt-key adv --keyserver keyserver.ubuntu.com --recv-keys FDA5DFFC
-$ACB run -- tee /etc/apt/sources.list.d/sonarr.list <<< "deb http://apt.sonarr.tv/ master main"
-$ACB run -- apt update
-$ACB run -- apt upgrade -y
-$ACB run -- apt install nzbdrone -y
+# Configure the container for sonarr
+echo_step "Configuring Container"
+buildah config --cmd "mono /opt/NzbDrone/NzbDrone.exe --no-browser -data=/sonar/config" ${CTNR}
+buildah config --volume /sonarr/config ${CTNR}
+buildah config --volume /downloads ${CTNR}
+buildah config --volume /sonar/media ${CTNR}
+buildah config --volume /dev/rtc ${CTNR}
+buildah config --port 8989 ${CTNR}
 
-# Set executable
-$ACB set-exec -- mono /opt/NzbDrone/NzbDrone.exe --no-browser -data=/sonarr/config
-
-# Write out the ACI
-$ACB write --overwrite "$IMAGE_NAME".aci
-
-# Done
-$ACB end
+# Commit the container
+echo_step "Comminting Container"
+buildah commit ${CTNR} "sonarr"
