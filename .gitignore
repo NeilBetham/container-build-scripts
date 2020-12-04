@@ -3,3 +3,6 @@
 
 # Steam related dirs / info
 steam_*
+
+# Ignore vim swap files
+*.swp

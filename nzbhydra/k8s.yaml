@@ -1,0 +1,54 @@
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: nzbhydra-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nzbhydra2
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nzbhydra2
+    spec:
+      volumes:
+        - name: data-storage
+          persistentVolumeClaim:
+            claimName: nzbhydra2-pvc
+      containers:
+      - name: nzbhydra2
+        image: localhost/nzbhydra2
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5076
+        volumeMounts:
+          - mountPath: /data
+            name: data-storage
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nzbhydra2
+spec:
+  selector:
+    app: nzbhydra2
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5076
+      nodePort: 30001
+  type: NodePort
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nzbhydra2-pvc
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
