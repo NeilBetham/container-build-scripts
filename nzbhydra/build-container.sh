@@ -37,6 +37,7 @@ $BR -- apt install --no-install-recommends --no-install-suggests openjdk-11-jre-
 $BR -- curl -L -o /tmp/nzbhydra2.zip $(curl -s $(curl -s https://api.github.com/repos/theotherp/nzbhydra2/releases/latest | grep assets_url | cut -d\" -f4) | grep linux.zip | grep browser_download_url | cut -d\" -f 4)
 $BR -- mkdir /nzbhydra2
 $BR -- unzip /tmp/nzbhydra2.zip -d /nzbhydra2
+$BR -- rm /tmp/nzbhydra2.zip
 $BR -- chmod +x /nzbhydra2/nzbhydra2
 
 # Configure the container

@@ -22,6 +22,7 @@ BR="buildah run ${CTNR}"
 
 # Import base image
 buildah add ${CTNR} ${BASE_IMAGE_FILE} /
+buildah config --env DEBIAN_FRONTEND=noninteractive ${CTNR}
 
 # Update base image
 echo_step "Updating Base Image"
@@ -41,20 +42,21 @@ $BR -- apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 2009837
 $BR -- tee /etc/apt/sources.list.d/sonarr.list <<< "deb http://apt.sonarr.tv/ubuntu bionic main"
 $BR -- apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
 $BR -- tee /etc/apt/sources.list.d/mono-official-stable.list <<< "deb https://download.mono-project.com/repo/ubuntu stable-bionic main"
-$BR -- bash -c 'curl -o /tmp/mediainfo.deb https://mediaarea.net/repo/deb/repo-mediaarea_1.0-13_all.deb && dpkg -i /tmp/mediainfo.deb'
+$BR -- curl -o /tmp/mediainfo.deb https://mediaarea.net/repo/deb/repo-mediaarea_1.0-13_all.deb
+$BR -- dpkg -i /tmp/mediainfo.deb
+$BR -- rm /tmp/mediainfo.deb
 $BR -- apt update
 $BR -- apt upgrade -y
-$BR -- bash -c 'DEBIAN_FRONTEND=noninteractive apt install sonarr -y'
+$BR -- apt install --no-install-recommends --no-install-suggests sonarr -y
 
 # Configure the container for sonarr
 echo_step "Configuring Container"
-buildah config --cmd "mono /opt/NzbDrone/NzbDrone.exe --no-browser -data=/sonar/config" ${CTNR}
-buildah config --volume /sonarr/config ${CTNR}
+buildah config --cmd "mono /opt/NzbDrone/NzbDrone.exe --no-browser -data=/config" ${CTNR}
+buildah config --volume /config ${CTNR}
 buildah config --volume /downloads ${CTNR}
-buildah config --volume /sonar/media ${CTNR}
-buildah config --volume /dev/rtc ${CTNR}
+buildah config --volume /media ${CTNR}
 buildah config --port 8989 ${CTNR}
 
 # Commit the container
-echo_step "Comminting Container"
+echo_step "Committing Container"
 buildah commit ${CTNR} "sonarr"
