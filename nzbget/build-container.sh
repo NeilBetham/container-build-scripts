@@ -36,7 +36,7 @@ $BR -- apt install wget unrar -y
 echo_step "Installing NZBGet"
 $BR -- mkdir /nzbget
 $BR -- mkdir /downloads
-$BR -- mkdir /nzbget-config
+$BR -- mkdir /config
 
 # Download the latest release
 NZBGET_RELEASE_URL=$(wget -O - http://nzbget.net/info/nzbget-version-linux.json | sed -n "s/^.*stable-download.*: \"\(.*\)\".*/\1/p")
@@ -45,16 +45,16 @@ $BR -- sh /nzbget/nzbget-latest-bin-linux.run
 
 # Move config so we can link but expose it for reference if need be
 $BR -- mv /nzbget/nzbget.conf /nzbget/nzbget.conf.orig
-$BR -- ln -s /nzbget-config/nzbget.conf /nzbget/nzbget.conf
-$BR -- ln -s /nzbget/nzbget.conf.orig /nzbget-config/nzbget.conf.orig
+$BR -- ln -s /config/nzbget.conf /nzbget/nzbget.conf
+$BR -- ln -s /nzbget/nzbget.conf.orig /config/nzbget.conf.orig
 
 # Configure the container
 echo_step "Configuring Container"
 buildah config --cmd '/nzbget/nzbget -c /nzbget/nzbget.conf -s -o outputmode=log' ${CTNR}
 buildah config --volume /downloads ${CTNR}
-buildah config --volume /nzbget-config ${CTNR}
+buildah config --volume /config ${CTNR}
 buildah config --port 6789 ${CTNR}
 
 # Commit the container
-echo_step "Commiting Container"
+echo_step "Committing Container"
 buildah commit ${CTNR} "nzbget"
