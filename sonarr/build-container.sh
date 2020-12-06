@@ -51,7 +51,7 @@ $BR -- apt install --no-install-recommends --no-install-suggests sonarr -y
 
 # Configure the container for sonarr
 echo_step "Configuring Container"
-buildah config --cmd "mono /opt/NzbDrone/NzbDrone.exe --no-browser -data=/config" ${CTNR}
+buildah config --cmd "mono /usr/lib/sonarr/bin/Sonarr.exe --no-browser -data=/config" ${CTNR}
 buildah config --volume /config ${CTNR}
 buildah config --volume /downloads ${CTNR}
 buildah config --volume /media ${CTNR}
