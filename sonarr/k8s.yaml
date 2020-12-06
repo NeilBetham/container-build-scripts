@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarr-deployment
+spec:
+  selector:
+    matchLabels:
+      app: sonarr
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: sonarr
+    spec:
+      volumes:
+        - name: config-storage
+          persistentVolumeClaim:
+            claimName: sonarr-pvc
+        - name: media-storage
+          hostPath:
+            path: /srv/media/tv
+            type: Directory
+        - name: downloads-storage
+          hostPath:
+            path: /srv/media/downloads
+            type: Directory
+        - name: local-time
+          hostPath:
+            path: /etc/localtime
+            type: File
+      containers:
+      - name: sonarr
+        image: localhost/sonarr
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8989
+        volumeMounts:
+          - mountPath: /config
+            name: config-storage
+          - mountPath: /media
+            name: media-storage
+          - mountPath: /downloads
+            name: downloads-storage
+          - mountPath: /etc/localtime
+            name: local-time
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarr
+spec:
+  selector:
+    app: sonarr
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8989
+      nodePort: 30002
+  type: NodePort
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sonarr-pvc
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

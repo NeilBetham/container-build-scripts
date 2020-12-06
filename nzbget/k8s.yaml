@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nzbget-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nzbget
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nzbget
+    spec:
+      volumes:
+        - name: config-storage
+          persistentVolumeClaim:
+            claimName: nzbget-pvc
+        - name: downloads-storage
+          hostPath:
+            path: /srv/media/downloads
+            type: Directory
+      containers:
+      - name: nzbget
+        image: localhost/nzbget
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 6789
+        volumeMounts:
+          - mountPath: /config
+            name: config-storage
+          - mountPath: /downloads
+            name: downloads-storage
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nzbget
+spec:
+  selector:
+    app: nzbget
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 6789
+      nodePort: 30003
+  type: NodePort
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nzbget-pvc
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
