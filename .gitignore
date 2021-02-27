@@ -6,3 +6,6 @@ steam_*
 
 # Ignore vim swap files
 *.swp
+
+# App specific configs
+valheim/config.sh
