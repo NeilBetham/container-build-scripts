@@ -57,7 +57,7 @@ $BR -- apt install -y --no-install-recommends  jellyfin
 
 # Configure the container for Jellyfin
 echo_step "Configuring Container"
-buildah config --cmd "/opt/jellyfin/jellyfin/jellyin -d /data -C /cache -c /config -l /var/log" ${CTNR}
+buildah config --cmd "/usr/bin/jellyfin -d /data -C /cache -c /config -l /var/log" ${CTNR}
 buildah config --volume /config ${CTNR}
 buildah config --volume /cache ${CTNR}
 buildah config --volume /data ${CTNR}
