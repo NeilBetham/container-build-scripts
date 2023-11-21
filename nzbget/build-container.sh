@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 SCRIPT_DIR="$(dirname $(readlink -f $0))"
-BASE_IMAGE_URL="http://cdimage.ubuntu.com/ubuntu-base/releases/18.04/release/ubuntu-base-18.04.5-base-amd64.tar.gz"
-BASE_IMAGE_FILE="../base-image.tar.gz"
+BASE_IMAGE_URL="https://github.com/debuerreotype/docker-debian-artifacts/raw/eb898e26722d61d3a16a156c9a89a6908624cdf5/bookworm/slim/rootfs.tar.xz"
+BASE_IMAGE_FILE="../debian-base-image.tar.gz"
 IMAGE_NAME="nzbget-latest-ubuntu-amd64"
 TMP_DIR="/tmp/$(uuidgen)"
 
