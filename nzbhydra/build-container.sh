@@ -28,13 +28,11 @@ buildah config --env DEBIAN_FRONTEND=noninteractive ${CTNR}
 echo_step "Updating Base Image"
 $BR -- apt update
 $BR -- apt upgrade -y
-
-# Install deps
-echo_step "Installing Deps"
-$BR -- apt install --no-install-recommends --no-install-suggests openjdk-11-jre-headless curl unzip -y
+$BR -- apt install -y curl unzip
 
 # Install NZBHydra
-$BR -- curl -L -o /tmp/nzbhydra2.zip $(curl -s $(curl -s https://api.github.com/repos/theotherp/nzbhydra2/releases/latest | grep assets_url | cut -d\" -f4) | grep linux.zip | grep browser_download_url | cut -d\" -f 4)
+echo_step "Installing NZBHydra"
+$BR -- curl -L -o /tmp/nzbhydra2.zip $(curl -s $(curl -s https://api.github.com/repos/theotherp/nzbhydra2/releases/latest | grep assets_url | cut -d\" -f4) | grep 'amd64-linux.zip' | grep browser_download_url | cut -d\" -f 4)
 $BR -- mkdir /nzbhydra2
 $BR -- unzip /tmp/nzbhydra2.zip -d /nzbhydra2
 $BR -- rm /tmp/nzbhydra2.zip

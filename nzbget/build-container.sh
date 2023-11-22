@@ -2,7 +2,7 @@
 SCRIPT_DIR="$(dirname $(readlink -f $0))"
 BASE_IMAGE_URL="https://github.com/debuerreotype/docker-debian-artifacts/raw/eb898e26722d61d3a16a156c9a89a6908624cdf5/bookworm/slim/rootfs.tar.xz"
 BASE_IMAGE_FILE="../debian-base-image.tar.gz"
-IMAGE_NAME="nzbget-latest-ubuntu-amd64"
+IMAGE_NAME="nzbget-latest-debian-amd64"
 TMP_DIR="/tmp/$(uuidgen)"
 
 source ../utils.sh
@@ -30,6 +30,8 @@ $BR -- apt upgrade -y
 
 # Install deps
 echo_step "Installing Deps"
+$BR -- sed -i.bak 's/.*main$/& contrib non-free/g' /etc/apt/sources.list.d/debian.sources
+$BR -- apt update
 $BR -- apt install wget unrar -y
 
 # Install nzbget
