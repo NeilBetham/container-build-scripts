@@ -37,6 +37,7 @@ $BR -- mkdir /nzbhydra2
 $BR -- unzip /tmp/nzbhydra2.zip -d /nzbhydra2
 $BR -- rm /tmp/nzbhydra2.zip
 $BR -- chmod +x /nzbhydra2/nzbhydra2
+$BR -- chmod +x /nzbhydra2/nzbhydra2wrapperPy3.py
 
 # Configure the container
 echo_step "Configuring Container"
