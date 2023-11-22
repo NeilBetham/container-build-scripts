@@ -32,7 +32,7 @@ $BR -- apt upgrade -y
 echo_step "Installing Deps"
 $BR -- sed -i.bak 's/.*main$/& contrib non-free/g' /etc/apt/sources.list.d/debian.sources
 $BR -- apt update
-$BR -- apt install wget unrar -y
+$BR -- apt install curl unrar -y
 
 # Install nzbget
 echo_step "Installing NZBGet"
@@ -41,8 +41,8 @@ $BR -- mkdir /downloads
 $BR -- mkdir /config
 
 # Download the latest release
-NZBGET_RELEASE_URL=$(wget -O - http://nzbget.net/info/nzbget-version-linux.json | sed -n "s/^.*stable-download.*: \"\(.*\)\".*/\1/p")
-$BR -- wget --no-check-certificate -O /nzbget/nzbget-latest-bin-linux.run "$NZBGET_RELEASE_URL"
+NZBGET_RELEASE_URL=$(curl -L 'http://nzbget.net/info/nzbget-version-linux.json' | sed -n "s/^.*stable-download.*: \"\(.*\)\".*/\1/p")
+$BR -- curl -kL -o /nzbget/nzbget-latest-bin-linux.run "$NZBGET_RELEASE_URL"
 $BR -- sh /nzbget/nzbget-latest-bin-linux.run
 
 # Move config so we can link but expose it for reference if need be
