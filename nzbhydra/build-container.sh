@@ -40,7 +40,7 @@ $BR -- chmod +x /nzbhydra2/nzbhydra2
 
 # Configure the container
 echo_step "Configuring Container"
-buildah config --entrypoint '["/nzbhydra2/nzbhydra2", "--nobrowser", "--datafolder", "/data"]' ${CTNR}
+buildah config --entrypoint '["/nzbhydra2/nzbhydra2wrapperPy3.py", "--nobrowser", "--datafolder", "/data"]' ${CTNR}
 buildah config --volume /data ${CTNR}
 buildah config --port 5076 ${CTNR}
 
