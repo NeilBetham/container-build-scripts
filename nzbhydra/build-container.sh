@@ -28,7 +28,7 @@ buildah config --env DEBIAN_FRONTEND=noninteractive ${CTNR}
 echo_step "Updating Base Image"
 $BR -- apt update
 $BR -- apt upgrade -y
-$BR -- apt install -y curl unzip python3
+$BR -- apt install -y curl unzip python3 openjdk-17-jre-headless
 
 # Install NZBHydra
 echo_step "Installing NZBHydra"
