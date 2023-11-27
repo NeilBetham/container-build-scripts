@@ -43,7 +43,7 @@ $BR -- apt install vault
 
 # Configure the container for Vault
 echo_step "Configuring Container"
-buildah config --cmd "/usr/bin/vault -config=/config/vault-config.hcl -non-interactive" ${CTNR}
+buildah config --cmd "/usr/bin/vault server -config=/config/vault-config.hcl -non-interactive" ${CTNR}
 buildah config --volume /data ${CTNR}
 buildah config --volume /config ${CTNR}
 buildah config --port 443 ${CTNR}
