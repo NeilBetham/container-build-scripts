@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 SCRIPT_DIR="$(dirname $(readlink -f $0))"
-BASE_IMAGE_URL="https://github.com/debuerreotype/docker-debian-artifacts/raw/eb898e26722d61d3a16a156c9a89a6908624cdf5/bookworm/slim/rootfs.tar.xz"
-BASE_IMAGE_FILE="../debian-base-image.tar.gz"
+BASE_IMAGE_URL="https://github.com/debuerreotype/docker-debian-artifacts/raw/1f1e36af44a355418661956f15e39f5b04b848b6/buster/slim/rootfs.tar.xz"
+BASE_IMAGE_FILE="../debian-base-image.buster.tar.gz"
 IMAGE_NAME="sonarr-latest-ubuntu-amd64"
 TMP_DIR="/tmp/$(uuidgen)"
 
@@ -37,12 +37,10 @@ buildah add ${CTNR} ../cas/* /usr/local/share/ca_certificates
 # Install sonarr
 echo_step "Installing Sonarr"
 $BR -- useradd -r sonarr
-$BR -- groupadd sonarr
-$BR -- apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 2009837CBFFD68F45BC180471F4F90DE2A9B4BF8
-$BR -- tee /etc/apt/sources.list.d/sonarr.list <<< "deb http://apt.sonarr.tv/ubuntu bionic main"
-$BR -- apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
-$BR -- tee /etc/apt/sources.list.d/mono-official-stable.list <<< "deb https://download.mono-project.com/repo/ubuntu stable-bionic main"
-$BR -- curl -o /tmp/mediainfo.deb https://mediaarea.net/repo/deb/repo-mediaarea_1.0-13_all.deb
+$BR -- gpg -k
+$BR -- gpg --keyserver hkp://keyserver.ubuntu.com:80 --no-default-keyring --keyring /usr/share/keyrings/sonarr.gpg --recv-keys 2009837CBFFD68F45BC180471F4F90DE2A9B4BF8
+$BR -- bash -c 'echo "deb [signed-by=/usr/share/keyrings/sonarr.gpg] https://apt.sonarr.tv/debian buster main" | tee /etc/apt/sources.list.d/sonarr.list'
+$BR -- curl -o /tmp/mediainfo.deb https://mediaarea.net/repo/deb/repo-mediaarea_1.0-24_all.deb
 $BR -- dpkg -i /tmp/mediainfo.deb
 $BR -- rm /tmp/mediainfo.deb
 $BR -- apt update
