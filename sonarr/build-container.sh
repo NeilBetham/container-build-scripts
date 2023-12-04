@@ -38,6 +38,8 @@ buildah add ${CTNR} ../cas/* /usr/local/share/ca_certificates
 echo_step "Installing Sonarr"
 $BR -- useradd -r sonarr
 $BR -- gpg -k
+$BR -- gpg --homedir /tmp --no-default-keyring --keyring /usr/share/keyrings/mono-official-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
+$BR -- bash -c 'echo "deb [signed-by=/usr/share/keyrings/mono-official-archive-keyring.gpg] https://download.mono-project.com/repo/debian stable-buster main" | tee /etc/apt/sources.list.d/mono-official-stable.list'
 $BR -- gpg --keyserver hkp://keyserver.ubuntu.com:80 --no-default-keyring --keyring /usr/share/keyrings/sonarr.gpg --recv-keys 2009837CBFFD68F45BC180471F4F90DE2A9B4BF8
 $BR -- bash -c 'echo "deb [signed-by=/usr/share/keyrings/sonarr.gpg] https://apt.sonarr.tv/debian buster main" | tee /etc/apt/sources.list.d/sonarr.list'
 $BR -- curl -o /tmp/mediainfo.deb https://mediaarea.net/repo/deb/repo-mediaarea_1.0-24_all.deb
@@ -45,7 +47,7 @@ $BR -- dpkg -i /tmp/mediainfo.deb
 $BR -- rm /tmp/mediainfo.deb
 $BR -- apt update
 $BR -- apt upgrade -y
-$BR -- apt install --no-install-recommends --no-install-suggests sonarr -y
+$BR -- apt install --no-install-recommends --no-install-suggests sonarr ca-certificates-mono -y
 
 # Configure the container for sonarr
 echo_step "Configuring Container"
