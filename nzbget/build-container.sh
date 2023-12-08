@@ -32,7 +32,7 @@ $BR -- apt upgrade -y
 echo_step "Installing Deps"
 $BR -- sed -i.bak 's/.*main$/& contrib non-free/g' /etc/apt/sources.list.d/debian.sources
 $BR -- apt update
-$BR -- apt install curl unrar -y
+$BR -- apt install curl unrar ca-certificates -y
 
 # Install nzbget
 echo_step "Installing NZBGet"
