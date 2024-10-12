@@ -45,6 +45,7 @@ $BR -- /aedilebot-main/bin/pip3 install -r aedilebot-main/requirements.txt
 
 # Configure the container for Jellyfin
 echo_step "Configuring Container"
+buildah config --workingdir /aedilebot-main
 buildah config --cmd "/aedilebot-main/bin/python3 /aedilebot-main/src/main.py" ${CTNR}
 
 # Commit the container
